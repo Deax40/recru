@@ -1,0 +1,529 @@
+generator client {
+  provider        = "prisma-client-js"
+  output          = "../src/generated/prisma"
+  previewFeatures = ["driverAdapters"]
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+enum Role {
+  ADMIN
+  OPERATOR
+}
+
+enum UserStatus {
+  ACTIVE
+  SUSPENDED
+  PENDING_PASSWORD_CHANGE
+}
+
+enum CallStatus {
+  TO_CALL
+  CALLED
+  NO_ANSWER
+  WRONG_NUMBER
+  TO_CALLBACK
+  NOT_INTERESTED
+  INTERESTED
+  MEETING_SCHEDULED
+  QUOTE_REQUESTED
+  QUOTE_IN_PROGRESS
+  QUOTE_SENT
+  QUOTE_SIGNED
+  QUOTE_REFUSED
+  LOST_CLIENT
+  FINALIZED_CLIENT
+}
+
+enum ProspectStatus {
+  NEW
+  CONTACTED
+  INTERESTED
+  MEETING_SCHEDULED
+  QUOTE_SENT
+  CLIENT
+  LOST
+  ARCHIVED
+}
+
+enum QuoteStatus {
+  INFO_TO_COMPLETE
+  IN_PREPARATION
+  SENT
+  WAITING_RESPONSE
+  FOLLOW_UP_NEEDED
+  ACCEPTED
+  SIGNED
+  DEPOSIT_RECEIVED
+  PARTIALLY_PAID
+  FULLY_PAID
+  REFUSED
+  CANCELLED
+  EXPIRED
+}
+
+enum CommissionStatus {
+  ESTIMATION
+  WAITING_SIGNATURE
+  WAITING_PAYMENT
+  TO_VALIDATE
+  VALIDATED
+  PAYMENT_SCHEDULED
+  PAID
+  CANCELLED
+  SUSPENDED
+}
+
+enum NotificationType {
+  NEW_PROSPECT
+  RECALL_TODAY
+  QUOTE_CREATED
+  QUOTE_SENT
+  QUOTE_SIGNED
+  PAYMENT_RECEIVED
+  COMMISSION_VALIDATED
+  COMMISSION_PAID
+  NEW_DOCUMENT
+  MANDATORY_DOCUMENT
+  ADMIN_MESSAGE
+  ACCOUNT_WARNING
+  IMPORTANT_INFO
+  SUPPORT_REPLY
+  NEW_ATTRIBUTION
+}
+
+enum SupportTicketStatus {
+  OPEN
+  IN_PROGRESS
+  WAITING
+  RESOLVED
+  CLOSED
+}
+
+enum SupportPriority {
+  LOW
+  NORMAL
+  HIGH
+  URGENT
+}
+
+enum DocumentStatus {
+  PUBLISHED
+  DRAFT
+  ARCHIVED
+}
+
+enum ContentStatus {
+  PUBLISHED
+  DRAFT
+  SCHEDULED
+  ARCHIVED
+}
+
+enum ImportStatus {
+  PENDING
+  PROCESSING
+  COMPLETED
+  FAILED
+  CANCELLED
+}
+
+model User {
+  id                String     @id @default(cuid())
+  identifier        String     @unique
+  email             String?    @unique
+  phone             String?
+  firstName         String
+  lastName          String
+  passwordHash      String
+  role              Role       @default(OPERATOR)
+  status            UserStatus @default(ACTIVE)
+  mustChangePassword Boolean   @default(false)
+  commissionRate    Float      @default(30)
+  createdAt         DateTime   @default(now())
+  updatedAt         DateTime   @updatedAt
+  createdById       String?
+  createdBy         User?      @relation("CreatedUsers", fields: [createdById], references: [id])
+  createdUsers      User[]     @relation("CreatedUsers")
+
+  loginAttempts     Int        @default(0)
+  lockedUntil       DateTime?
+  lastLoginAt       DateTime?
+  lastLoginIp       String?
+
+  calls             Call[]
+  prospects         Prospect[]
+  quotes            Quote[]
+  commissions       Commission[]
+  notifications     Notification[]
+  supportTickets    SupportTicket[]
+  supportMessages   SupportMessage[]
+  activityLogs      ActivityLog[]
+  documentReads     DocumentRead[]
+  assignments       Assignment[]     @relation("AssignedTo")
+  assignedBy        Assignment[]     @relation("AssignedBy")
+  loginHistory      LoginHistory[]
+
+  @@index([role])
+  @@index([status])
+}
+
+model LoginHistory {
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  ipAddress String?
+  userAgent String?
+  success   Boolean
+  createdAt DateTime @default(now())
+
+  @@index([userId])
+}
+
+model Campaign {
+  id          String   @id @default(cuid())
+  name        String
+  description String?
+  sector      String?
+  zone        String?
+  isActive    Boolean  @default(true)
+  startDate   DateTime?
+  endDate     DateTime?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  prospects   Prospect[]
+  assignments Assignment[]
+  calls       Call[]
+}
+
+model Prospect {
+  id                String         @id @default(cuid())
+  companyName       String
+  contactName       String?
+  email             String?
+  phone             String?
+  website           String?
+  sector            String?
+  city              String?
+  address           String?
+  postalCode        String?
+  country           String         @default("France")
+  status            ProspectStatus @default(NEW)
+  urgencyLevel      String?
+  estimatedBudget   Float?
+  serviceNeeded     String?
+  notes             String?
+  source            String?
+  isAnonymized      Boolean        @default(false)
+  nextFollowUp      DateTime?
+  createdAt         DateTime       @default(now())
+  updatedAt         DateTime       @updatedAt
+
+  operatorId        String?
+  operator          User?          @relation(fields: [operatorId], references: [id])
+  campaignId        String?
+  campaign          Campaign?      @relation(fields: [campaignId], references: [id])
+
+  calls             Call[]
+  quotes            Quote[]
+  assignments       Assignment[]
+  attachments       Attachment[]
+
+  @@index([operatorId])
+  @@index([status])
+  @@index([companyName])
+}
+
+model Call {
+  id              String     @id @default(cuid())
+  callDate        DateTime   @default(now())
+  companyName     String
+  contactName     String?
+  phone           String?
+  email           String?
+  sector          String?
+  city            String?
+  website         String?
+  source          String?
+  serviceNeeded   String?
+  callSummary     String?
+  interestLevel   Int?       // 1-5
+  status          CallStatus @default(CALLED)
+  nextAction      String?
+  callbackDate    DateTime?
+  comments        String?
+  isLocked        Boolean    @default(false)
+  createdAt       DateTime   @default(now())
+  updatedAt       DateTime   @updatedAt
+
+  operatorId      String
+  operator        User       @relation(fields: [operatorId], references: [id])
+  prospectId      String?
+  prospect        Prospect?  @relation(fields: [prospectId], references: [id])
+  campaignId      String?
+  campaign        Campaign?  @relation(fields: [campaignId], references: [id])
+
+  attachments     Attachment[]
+  editHistory     CallEditHistory[]
+
+  @@index([operatorId])
+  @@index([status])
+  @@index([callDate])
+}
+
+model CallEditHistory {
+  id          String   @id @default(cuid())
+  callId      String
+  call        Call     @relation(fields: [callId], references: [id], onDelete: Cascade)
+  field       String
+  oldValue    String?
+  newValue    String?
+  editedById  String
+  createdAt   DateTime @default(now())
+}
+
+model Assignment {
+  id          String   @id @default(cuid())
+  prospectId  String
+  prospect    Prospect @relation(fields: [prospectId], references: [id], onDelete: Cascade)
+  operatorId  String
+  operator    User     @relation("AssignedTo", fields: [operatorId], references: [id])
+  assignedById String
+  assignedBy  User     @relation("AssignedBy", fields: [assignedById], references: [id])
+  campaignId  String?
+  campaign    Campaign? @relation(fields: [campaignId], references: [id])
+  createdAt   DateTime @default(now())
+
+  @@unique([prospectId, operatorId])
+}
+
+model Quote {
+  id              String      @id @default(cuid())
+  quoteNumber     String      @unique
+  clientName      String
+  service         String
+  amountHT        Float
+  amountTTC       Float
+  vatRate         Float       @default(20)
+  status          QuoteStatus @default(IN_PREPARATION)
+  sentAt          DateTime?
+  validUntil      DateTime?
+  amountReceived  Float?
+  receivedAt      DateTime?
+  internalComment String?
+  operatorComment String?
+  pdfPath         String?
+  invoicePath     String?
+  createdAt       DateTime    @default(now())
+  updatedAt       DateTime    @updatedAt
+
+  operatorId      String
+  operator        User        @relation(fields: [operatorId], references: [id])
+  prospectId      String?
+  prospect        Prospect?   @relation(fields: [prospectId], references: [id])
+
+  commission      Commission?
+  attachments     Attachment[]
+
+  @@index([operatorId])
+  @@index([status])
+}
+
+model Commission {
+  id              String           @id @default(cuid())
+  quoteId         String           @unique
+  quote           Quote            @relation(fields: [quoteId], references: [id])
+  operatorId      String
+  operator        User             @relation(fields: [operatorId], references: [id])
+  baseAmount      Float
+  rate            Float            @default(30)
+  amount          Float
+  status          CommissionStatus @default(ESTIMATION)
+  scheduledAt     DateTime?
+  paidAt          DateTime?
+  comment         String?
+  createdAt       DateTime         @default(now())
+  updatedAt       DateTime         @updatedAt
+
+  @@index([operatorId])
+  @@index([status])
+}
+
+model DocumentCategory {
+  id          String     @id @default(cuid())
+  name        String
+  slug        String     @unique
+  description String?
+  order       Int        @default(0)
+  createdAt   DateTime   @default(now())
+
+  documents   Document[]
+}
+
+model Document {
+  id            String           @id @default(cuid())
+  title         String
+  description   String?
+  filePath      String?
+  fileSize      Int?
+  version       String           @default("1.0")
+  status        DocumentStatus   @default(PUBLISHED)
+  isMandatory   Boolean          @default(false)
+  order         Int              @default(0)
+  publishedAt   DateTime?
+  updatedFileAt DateTime?
+  createdAt     DateTime         @default(now())
+  updatedAt     DateTime         @updatedAt
+
+  categoryId    String?
+  category      DocumentCategory? @relation(fields: [categoryId], references: [id])
+
+  reads         DocumentRead[]
+}
+
+model DocumentRead {
+  id          String   @id @default(cuid())
+  documentId  String
+  document    Document @relation(fields: [documentId], references: [id], onDelete: Cascade)
+  userId      String
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  readAt      DateTime @default(now())
+  confirmed   Boolean  @default(false)
+  confirmedAt DateTime?
+
+  @@unique([documentId, userId])
+}
+
+model FAQ {
+  id          String   @id @default(cuid())
+  question    String
+  answer      String
+  category    String
+  order       Int      @default(0)
+  isPublished Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
+
+model Notification {
+  id          String           @id @default(cuid())
+  userId      String
+  user        User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+  type        NotificationType
+  title       String
+  message     String
+  link        String?
+  isRead      Boolean          @default(false)
+  readAt      DateTime?
+  createdAt   DateTime         @default(now())
+
+  @@index([userId, isRead])
+}
+
+model SupportTicket {
+  id          String              @id @default(cuid())
+  ticketNumber String             @unique
+  category    String
+  subject     String
+  priority    SupportPriority     @default(NORMAL)
+  status      SupportTicketStatus @default(OPEN)
+  prospectId  String?
+  quoteId     String?
+  createdAt   DateTime            @default(now())
+  updatedAt   DateTime            @updatedAt
+
+  userId      String
+  user        User                @relation(fields: [userId], references: [id])
+
+  messages    SupportMessage[]
+  attachments Attachment[]
+}
+
+model SupportMessage {
+  id          String        @id @default(cuid())
+  ticketId    String
+  ticket      SupportTicket @relation(fields: [ticketId], references: [id], onDelete: Cascade)
+  userId      String
+  user        User          @relation(fields: [userId], references: [id])
+  message     String
+  isInternal  Boolean       @default(false)
+  createdAt   DateTime      @default(now())
+
+  attachments Attachment[]
+}
+
+model Attachment {
+  id          String    @id @default(cuid())
+  fileName    String
+  filePath    String
+  fileSize    Int?
+  mimeType    String?
+  createdAt   DateTime  @default(now())
+
+  callId        String?
+  call          Call?          @relation(fields: [callId], references: [id], onDelete: Cascade)
+  prospectId    String?
+  prospect      Prospect?      @relation(fields: [prospectId], references: [id], onDelete: Cascade)
+  quoteId       String?
+  quote         Quote?         @relation(fields: [quoteId], references: [id], onDelete: Cascade)
+  ticketId      String?
+  ticket        SupportTicket? @relation(fields: [ticketId], references: [id], onDelete: Cascade)
+  messageId     String?
+  message       SupportMessage? @relation(fields: [messageId], references: [id], onDelete: Cascade)
+}
+
+model PageContent {
+  id          String        @id @default(cuid())
+  slug        String        @unique
+  title       String
+  subtitle    String?
+  content     String
+  status      ContentStatus @default(PUBLISHED)
+  scheduledAt DateTime?
+  archivedAt  DateTime?
+  createdAt   DateTime      @default(now())
+  updatedAt   DateTime      @updatedAt
+}
+
+model Setting {
+  id        String   @id @default(cuid())
+  key       String   @unique
+  value     String
+  group     String   @default("general")
+  label     String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model ActivityLog {
+  id          String   @id @default(cuid())
+  userId      String?
+  user        User?    @relation(fields: [userId], references: [id])
+  action      String
+  entity      String
+  entityId    String?
+  description String?
+  metadata    String?  // JSON string
+  ipAddress   String?
+  createdAt   DateTime @default(now())
+
+  @@index([userId])
+  @@index([entity])
+  @@index([createdAt])
+}
+
+model ImportLog {
+  id          String       @id @default(cuid())
+  fileName    String
+  totalRows   Int          @default(0)
+  importedRows Int         @default(0)
+  errorRows   Int          @default(0)
+  status      ImportStatus @default(PENDING)
+  errorReport String?
+  createdById String?
+  createdAt   DateTime     @default(now())
+  updatedAt   DateTime     @updatedAt
+}

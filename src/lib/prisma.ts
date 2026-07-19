@@ -16,7 +16,7 @@ function createPrismaClient(): PrismaClient {
   const { PrismaPg } = require("@prisma/adapter-pg");
   // eslint-disable-next-line @typescript-eslint/no-require-imports
   const { Pool } = require("pg");
-  const pool = new Pool({ connectionString: url, ssl: { rejectUnauthorized: false } });
+  const pool = new Pool({ connectionString: url });
   const adapter = new PrismaPg(pool);
   return new PrismaClient({ adapter });
 }

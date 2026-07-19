@@ -3,13 +3,14 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { signOut } from "next-auth/react";
+import { useState } from "react";
 import { cn } from "@/lib/utils";
 import {
   LayoutDashboard, Phone, Users, FileText, DollarSign,
-  BookOpen, HelpCircle, Bell, User, BarChart2, History,
+  BookOpen, HelpCircle, Bell, User, BarChart2,
   Target, FileCode, MessageSquare, ChevronRight, LogOut,
   Settings, ClipboardList, Upload, Shield, Megaphone,
-  FolderOpen, Star, Globe
+  FolderOpen, Star, Globe, ChevronDown, Library
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -17,7 +18,7 @@ import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 
 interface NavItem {
   label: string;
-  href: string;
+  href?: string;
   icon: React.ElementType;
   badge?: number;
   children?: NavItem[];
@@ -30,16 +31,20 @@ const operatorNav: NavItem[] = [
   { label: "Mes devis", href: "/operator/quotes", icon: FileText },
   { label: "Mes commissions", href: "/operator/commissions", icon: DollarSign },
   { label: "Mes statistiques", href: "/operator/stats", icon: BarChart2 },
-  { label: "Mes objectifs", href: "/operator/objectives", icon: Target },
   { label: "Mes notifications", href: "/operator/notifications", icon: Bell },
-  { label: "Documents", href: "/operator/documents", icon: BookOpen },
-  { label: "FAQ", href: "/operator/faq", icon: HelpCircle },
-  { label: "Guide de démarrage", href: "/operator/guide", icon: Globe },
-  { label: "Scripts d'appel", href: "/operator/scripts", icon: FileCode },
-  { label: "Objections", href: "/operator/objections", icon: MessageSquare },
+  {
+    label: "Ressources",
+    icon: Library,
+    children: [
+      { label: "Guide de démarrage", href: "/operator/guide", icon: Globe },
+      { label: "FAQ", href: "/operator/faq", icon: HelpCircle },
+      { label: "Scripts d'appel", href: "/operator/scripts", icon: FileCode },
+      { label: "Objections", href: "/operator/objections", icon: MessageSquare },
+      { label: "Documents", href: "/operator/documents", icon: BookOpen },
+    ],
+  },
   { label: "Support", href: "/operator/support", icon: MessageSquare },
   { label: "Mon profil", href: "/operator/profile", icon: User },
-  { label: "Historique", href: "/operator/history", icon: History },
 ];
 
 const adminNav: NavItem[] = [
@@ -52,12 +57,12 @@ const adminNav: NavItem[] = [
   { label: "Commissions", href: "/admin/commissions", icon: DollarSign },
   { label: "Documents", href: "/admin/documents", icon: FolderOpen },
   { label: "FAQ", href: "/admin/faq", icon: HelpCircle },
-  { label: "Contenu CMS", href: "/admin/content", icon: Globe },
   { label: "Notifications", href: "/admin/notifications", icon: Bell },
   { label: "Support", href: "/admin/support", icon: MessageSquare },
   { label: "Import / Export", href: "/admin/import", icon: Upload },
   { label: "Journal d'audit", href: "/admin/audit", icon: Shield },
   { label: "Classement", href: "/admin/ranking", icon: Star },
+  { label: "Contenu CMS", href: "/admin/content", icon: Globe },
   { label: "Paramètres", href: "/admin/settings", icon: Settings },
 ];
 
@@ -67,14 +72,64 @@ interface SidebarProps {
   notificationCount?: number;
 }
 
+function NavGroup({ item, isActive }: { item: NavItem; isActive: (href: string) => boolean }) {
+  const pathname = usePathname();
+  const hasActiveChild = item.children?.some(c => c.href && pathname.startsWith(c.href));
+  const [open, setOpen] = useState(!!hasActiveChild);
+  const Icon = item.icon;
+
+  return (
+    <li>
+      <button
+        onClick={() => setOpen(!open)}
+        className={cn(
+          "w-full flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-all",
+          hasActiveChild
+            ? "bg-sidebar-accent text-sidebar-accent-foreground"
+            : "text-sidebar-foreground/70 hover:bg-sidebar-accent hover:text-sidebar-accent-foreground"
+        )}
+      >
+        <Icon className="h-4 w-4 shrink-0" />
+        <span className="flex-1 text-left truncate">{item.label}</span>
+        <ChevronDown className={cn("h-3.5 w-3.5 opacity-60 transition-transform", open && "rotate-180")} />
+      </button>
+
+      {open && (
+        <ul className="mt-0.5 ml-4 pl-3 border-l border-sidebar-border space-y-0.5">
+          {item.children?.map((child) => {
+            if (!child.href) return null;
+            const ChildIcon = child.icon;
+            const active = isActive(child.href);
+            return (
+              <li key={child.href}>
+                <Link
+                  href={child.href}
+                  className={cn(
+                    "flex items-center gap-3 rounded-lg px-3 py-2 text-sm transition-all",
+                    active
+                      ? "bg-sidebar-primary text-sidebar-primary-foreground font-medium shadow-sm"
+                      : "text-sidebar-foreground/60 hover:bg-sidebar-accent hover:text-sidebar-accent-foreground"
+                  )}
+                >
+                  <ChildIcon className="h-3.5 w-3.5 shrink-0" />
+                  <span className="truncate">{child.label}</span>
+                  {active && <ChevronRight className="h-3 w-3 ml-auto opacity-60" />}
+                </Link>
+              </li>
+            );
+          })}
+        </ul>
+      )}
+    </li>
+  );
+}
+
 export function Sidebar({ role, user, notificationCount = 0 }: SidebarProps) {
   const pathname = usePathname();
   const navItems = role === "ADMIN" ? adminNav : operatorNav;
 
   const isActive = (href: string) => {
-    if (href === "/admin" || href === "/operator") {
-      return pathname === href;
-    }
+    if (href === "/admin" || href === "/operator") return pathname === href;
     return pathname.startsWith(href);
   };
 
@@ -101,13 +156,18 @@ export function Sidebar({ role, user, notificationCount = 0 }: SidebarProps) {
       <nav className="flex-1 overflow-y-auto py-4 px-3 scrollbar-thin">
         <ul className="space-y-0.5">
           {navItems.map((item) => {
+            if (item.children) {
+              return <NavGroup key={item.label} item={item} isActive={isActive} />;
+            }
+
             const Icon = item.icon;
-            const active = isActive(item.href);
-            const isBell = item.href.includes("notifications");
+            const active = item.href ? isActive(item.href) : false;
+            const isBell = item.href?.includes("notifications");
+
             return (
               <li key={item.href}>
                 <Link
-                  href={item.href}
+                  href={item.href!}
                   className={cn(
                     "flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-all",
                     active

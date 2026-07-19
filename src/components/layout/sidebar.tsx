@@ -62,8 +62,8 @@ const adminNav: NavItem[] = [
   { label: "Import / Export", href: "/admin/import", icon: Upload },
   { label: "Journal d'audit", href: "/admin/audit", icon: Shield },
   { label: "Classement", href: "/admin/ranking", icon: Star },
-  { label: "Contenu CMS", href: "/admin/content", icon: Globe },
   { label: "Paramètres", href: "/admin/settings", icon: Settings },
+  { label: "Mon profil", href: "/admin/profile", icon: User },
 ];
 
 interface SidebarProps {

@@ -1,21 +1,30 @@
-import { auth } from "@/lib/auth";
+import { getToken } from "next-auth/jwt";
 import { NextResponse } from "next/server";
+import type { NextRequest } from "next/server";
 
-export default auth((req) => {
-  const { nextUrl, auth: session } = req;
-  const isLoggedIn = !!session;
-  const isAdmin = session?.user?.role === "ADMIN";
-  const isOperator = session?.user?.role === "OPERATOR";
-  const mustChangePassword = session?.user?.mustChangePassword;
+export async function proxy(request: NextRequest) {
+  const { nextUrl } = request;
 
-  const isAuthRoute = nextUrl.pathname.startsWith("/login") ||
+  const isAuthRoute =
+    nextUrl.pathname.startsWith("/login") ||
     nextUrl.pathname.startsWith("/forgot-password");
   const isAdminRoute = nextUrl.pathname.startsWith("/admin");
   const isOperatorRoute = nextUrl.pathname.startsWith("/operator");
   const isChangePassword = nextUrl.pathname === "/change-password";
   const isApiAuth = nextUrl.pathname.startsWith("/api/auth");
+  const isApiHealth = nextUrl.pathname.startsWith("/api/health");
 
-  if (isApiAuth) return NextResponse.next();
+  if (isApiAuth || isApiHealth) return NextResponse.next();
+
+  const token = await getToken({
+    req: request,
+    secret: process.env.AUTH_SECRET,
+  });
+
+  const isLoggedIn = !!token;
+  const isAdmin = token?.role === "ADMIN";
+  const isOperator = token?.role === "OPERATOR";
+  const mustChangePassword = token?.mustChangePassword as boolean | undefined;
 
   if (!isLoggedIn && !isAuthRoute) {
     return NextResponse.redirect(new URL("/login", nextUrl));
@@ -39,7 +48,7 @@ export default auth((req) => {
   }
 
   return NextResponse.next();
-});
+}
 
 export const config = {
   matcher: ["/((?!_next/static|_next/image|favicon.ico|.*\\.png$).*)"],

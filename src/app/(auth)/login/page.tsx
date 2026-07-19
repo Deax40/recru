@@ -52,8 +52,8 @@ export default function LoginPage() {
         return;
       }
 
-      router.push("/");
-      router.refresh();
+      // Navigation dure pour forcer le rechargement avec le cookie de session
+      window.location.href = "/";
     } catch {
       toast.error("Une erreur est survenue. Réessayez.");
     } finally {

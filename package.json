@@ -36,6 +36,7 @@
     "@types/bcryptjs": "^2.4.6",
     "@types/papaparse": "^5.5.2",
     "@types/pg": "^8.20.0",
+    "@vercel/next": "^4.20.4",
     "bcryptjs": "^3.0.3",
     "better-sqlite3": "^12.11.1",
     "class-variance-authority": "^0.7.1",

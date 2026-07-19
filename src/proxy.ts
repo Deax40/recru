@@ -21,11 +21,16 @@ export async function proxy(request: NextRequest) {
     ? "__Secure-authjs.session-token"
     : "authjs.session-token";
 
-  const token = await getToken({
-    req: request,
-    secret: process.env.AUTH_SECRET,
-    cookieName,
-  });
+  let token = null;
+  try {
+    token = await getToken({
+      req: request,
+      secret: process.env.AUTH_SECRET ?? "",
+      cookieName,
+    });
+  } catch {
+    // AUTH_SECRET manquant ou token invalide — traité comme non connecté
+  }
 
   const isLoggedIn = !!token;
   const isAdmin = token?.role === "ADMIN";

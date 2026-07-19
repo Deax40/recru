@@ -16,9 +16,15 @@ export async function proxy(request: NextRequest) {
 
   if (isApiAuth || isApiHealth) return NextResponse.next();
 
+  const secureCookie = request.nextUrl.protocol === "https:";
+  const cookieName = secureCookie
+    ? "__Secure-authjs.session-token"
+    : "authjs.session-token";
+
   const token = await getToken({
     req: request,
     secret: process.env.AUTH_SECRET,
+    cookieName,
   });
 
   const isLoggedIn = !!token;
